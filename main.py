@@ -1,6 +1,7 @@
 import psycopg2
+from psycopg2.sql import SQL, Identifier
 
-conn = psycopg2.connect(database='clients', user='postgres', password='padzzzer18flot18vk')
+conn = psycopg2.connect(database='client', user='postgres', password='padzzzer18flot18vk')
 
 def create_db(conn):
     with conn.cursor() as cur:
@@ -46,14 +47,16 @@ def add_phone_numbers(conn, client_id, phone_numbers):
 
 def change_client(conn, client_id, name=None, surname=None, e_mail=None):
     with conn.cursor() as cur:
+        arg_list = {'name': name, "surname": surname, 'e_mail': e_mail}
+        for key, arg in arg_list.items():
+            if arg:
+                cur.execute(SQL("UPDATE clients SET {}=%s WHERE client_id=%s").format(Identifier(key)), (arg, client_id))
         cur.execute("""
-        UPDATE clients
-        SET name=%s, surname=%s, e_mail=%s
-        WHERE client_id=%s
-        RETURNING (name, surname, e_mail, client_id);
-        """, (name, surname, e_mail, client_id))
+            SELECT * FROM clients
+            WHERE client_id=%s
+            """, client_id)
         conn.commit()
-    pass
+        pass
 
 def change_phone(conn, client_id, phone_numbers=None):
     with conn.cursor() as cur:
@@ -76,6 +79,7 @@ def delete_phone (conn, client_id):
     pass
 
 def delete_client(conn, client_id):
+    delete_phone(conn, client_id)
     with conn.cursor() as cur:
         cur.execute("""
         DELETE FROM clients
@@ -89,29 +93,32 @@ def find_client (conn, name=None, surname=None, e_mail=None, phone_numbers=None)
         cur.execute("""
         SELECT c.name, c.surname, c.e_mail, pn.phone_numbers From clients c
         LEFT JOIN phone_numbers pn ON c.client_id = pn.client_id
-        WHERE c.name=%s OR c.surname=%s OR c.e_mail=%s OR pn.phone_numbers=%s;
-        """, (name, surname, e_mail, phone_numbers,))
+        WHERE (c.name=%(name)s OR %(name)s IS NULL)
+        AND (c.surname=%(surname)s OR %(surname)s IS NULL)
+        AND (c.e_mail=%(e_mail)s OR %(e_mail)s IS NULL)
+        OR (pn.phone_numbers=%(phone_numbers)s OR %(phone_numbers)s IS NULL);
+        """, {'name': name, "surname": surname, 'e_mail': e_mail, 'phone_numbers': phone_numbers})
         return print(cur.fetchone())
-    pass
 
-# create_db()
-
-# add_new_client('Вася', 'Пупкин', 'vp@mail.ru')
-# add_new_client('Петя', 'Иванов', 'pi@mail.ru')
-# add_new_client('Илья', 'Макаров', 'im@mail.ru')
-
-# add_phone_numbers('1', '88005553535')
-# add_phone_numbers('2', '89651154422')
-# add_phone_numbers('3', '85553331122')
-
-# change_client(conn, '1', 'Антон', 'Антонов', 'aa@mail.ru')
-
-# change_phone(conn, '1', '55555555555')
-
-# delete_phone(conn, '1')
-
-# delete_client(conn, '1')
-
-# find_client(conn, 'Петя')
-
-conn.close()
+if __name__ == '__main__':
+    # create_db(conn)
+    #
+    # add_new_client(conn, 'Вася', 'Пупкин', 'vp@mail.ru')
+    # add_new_client(conn, 'Петя', 'Иванов', 'pi@mail.ru')
+    # add_new_client(conn, 'Илья', 'Макаров', 'im@mail.ru')
+    #
+    # add_phone_numbers(conn,'1', '88005553535')
+    # add_phone_numbers(conn,'2', '89651154422')
+    # add_phone_numbers(conn,'3', '85553331122')
+    #
+    # change_client(conn, '1', 'Антон', 'Антонов')
+    #
+    # change_phone(conn, '1', '55555555555')
+    #
+    # delete_phone(conn, '1')
+    #
+    # delete_client(conn, '1')
+    #
+    # find_client(conn, 'Петя')
+    #
+    conn.close()
